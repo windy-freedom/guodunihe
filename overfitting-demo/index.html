@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI过度拟合演示</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a73e8;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        /* 标签页样式 */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            background-color: #f8f9fa;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+            color: #666;
+        }
+        .tab-button.active {
+            background-color: #1a73e8;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* 数据拟合演示样式 */
+        .canvas-container {
+            position: relative;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 15px;
+        }
+        .slider-label {
+            min-width: 120px;
+        }
+        .metrics {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .metric {
+            padding: 8px 15px;
+            background-color: #fff;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background-color: #1557b0;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .explanation {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            line-height: 1.6;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            border-radius: 1.5px;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        /* 对话演示样式 */
+        .chat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .chat-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            max-width: 80%;
+        }
+        .user-message {
+            background: #e3f2fd;
+            margin-left: auto;
+        }
+        .ai-message {
+            background: #f5f5f5;
+        }
+        .ai-message.overfitting {
+            background: #fce4ec;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .pattern-display {
+            height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        .pattern {
+            position: absolute;
+            transition: all 0.5s;
+        }
+        .training-data-header {
+            font-weight: bold;
+            margin: 10px 0;
+            color: #666;
+            padding: 5px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        .training-data {
+            opacity: 0.7;
+            font-size: 0.9em;
+        }
+        .chat-container hr {
+            margin: 15px 0;
+            border: none;
+            border-top: 2px dashed #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI过度拟合演示</h1>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('data')">数据拟合演示</button>
+            <button class="tab-button" onclick="showTab('chat')">对话交互演示</button>
+        </div>
+
+        <!-- 数据拟合演示 -->
+        <div id="data-demo" class="tab-content active">
+            <div class="canvas-container">
+                <canvas id="plotCanvas" width="800" height="500"></canvas>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #4285f4;"></div>
+                    <span>训练数据</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #34a853;"></div>
+                    <span>简单拟合</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ea4335;"></div>
+                    <span>复杂拟合</span>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="button-group">
+                    <button id="generateData">生成新数据</button>
+                    <button id="fitSimple">简单拟合</button>
+                    <button id="fitComplex">复杂拟合</button>
+                    <button id="reset">重置</button>
+                </div>
+                <div class="slider-group">
+                    <span class="slider-label">数据点数量:</span>
+                    <input type="range" id="pointCount" min="5" max="30" value="10">
+                    <span id="pointCountValue">10</span>
+                </div>
+                <div class="slider-group">
+                    <span class="slider-label">拟合复杂度:</span>
+                    <input type="range" id="complexity" min="1" max="100" value="50">
+                    <span id="complexityValue">50</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        简单拟合MSE: <span id="simpleMSE">-</span>
+                    </div>
+                    <div class="metric">
+                        复杂拟合MSE: <span id="complexMSE">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="explanation">
+                <h3>什么是过度拟合？</h3>
+                <p>过度拟合是机器学习中的一个常见问题，指模型在训练数据上表现很好，但在新数据上表现较差的现象。</p>
+                <p>在这个演示中：</p>
+                <ul>
+                    <li>蓝点表示训练数据</li>
+                    <li>绿线表示简单拟合（正常学习）- 使用低阶多项式</li>
+                    <li>红线表示复杂拟合（过度学习）- 使用高阶多项式</li>
+                    <li>MSE（均方误差）表示拟合线与数据点的平均距离，数值越小表示拟合越准确</li>
+                </ul>
+                <p>通过调整复杂度滑块，你可以观察到：</p>
+                <ul>
+                    <li>复杂度较低时，模型可能欠拟合，无法很好地捕捉数据特征</li>
+                    <li>复杂度适中时，模型能够较好地平衡拟合程度和泛化能力</li>
+                    <li>复杂度过高时，模型过度拟合，虽然完美匹配了训练数据，但失去了泛化能力</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 对话交互演示 -->
+        <div id="chat-demo" class="tab-content">
+            <div class="chat-grid">
+                <div class="chat-section">
+                    <h2>正常学习的AI</h2>
+                    <div class="chat-container" id="normalChat"></div>
+                    <div class="input-area">
+                        <input type="text" id="normalInput" placeholder="输入问题...">
+                        <button onclick="sendMessage('normal')">发送</button>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            回复多样性: <span id="normalDiversity">100%</span>
+                        </div>
+                        <div class="metric">
+                            模式匹配度: <span id="normalPattern">20%</span>
+                        </div>
+                    </div>
+                    <div class="pattern-display" id="normalPattern">
+                        <!-- 动态生成的模式可视化 -->
+                    </div>
+                </div>
+
+                <div class="chat-section">
+                    <h2>过度拟合的AI</h2>
+                    <div class="chat-container" id="overfitChat"></div>
+                    <div class="input-area">
+                        <input type="text" id="overfitInput" placeholder="输入问题...">
+                        <button onclick="sendMessage('overfit')">发送</button>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric">
+                            回复多样性: <span id="overfitDiversity">100%</span>
+                        </div>
+                        <div class="metric">
+                            模式匹配度: <span id="overfitPattern">20%</span>
+                        </div>
+                    </div>
+                    <div class="pattern-display" id="overfitPattern">
+                        <!-- 动态生成的模式可视化 -->
+                    </div>
+                </div>
+            </div>
+            <div class="explanation">
+                <h3>AI对话中的过度拟合现象</h3>
+                <p>这个演示展示了AI在对话中可能出现的两种学习模式：</p>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #e3f2fd; height: 20px;"></div>
+                        <span>正常学习 - 保持回复的多样性和灵活性</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #fce4ec; height: 20px;"></div>
+                        <span>过度拟合 - 过分模仿用户的表达方式</span>
+                    </div>
+                </div>
+                <p>特点对比：</p>
+                <ul>
+                    <li><strong>正常学习的AI：</strong>
+                        <ul>
+                            <li>能够理解问题的本质并给出合适的回答</li>
+                            <li>保持自己的表达风格</li>
+                            <li>回复更加多样化和自然</li>
+                        </ul>
+                    </li>
+                    <li><strong>过度拟合的AI：</strong>
+                        <ul>
+                            <li>过分模仿用户的语言模式</li>
+                            <li>回复变得刻板和重复</li>
+                            <li>可能忽视问题的实际含义</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 标签页切换
+        function showTab(tabName) {
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // 取消所有标签按钮的激活状态
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 显示选中的标签页内容
+            document.getElementById(tabName + '-demo').classList.add('active');
+            // 激活对应的标签按钮
+            event.target.classList.add('active');
+        }
+
+        // 数据拟合演示代码
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+        let dataPoints = [];
+        let simpleFitPoints = [];
+        let complexFitPoints = [];
+
+        function drawGrid() {
+            const gridSize = 50;
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 0.5;
+
+            for (let x = gridSize; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = gridSize; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(50, 0);
+            ctx.lineTo(50, canvas.height);
+            ctx.stroke();
+        }
+
+        function generateRandomData() {
+            dataPoints = [];
+            const numPoints = parseInt(document.getElementById('pointCount').value);
+            for (let i = 0; i < numPoints; i++) {
+                const x = 50 + (canvas.width - 100) * (i / (numPoints - 1));
+                const y = canvas.height/2 + Math.sin((i / (numPoints - 1)) * Math.PI * 2) * 50 + (Math.random() - 0.5) * 60;
+                dataPoints.push({x, y});
+            }
+        }
+
+        function drawPoint(x, y, color = '#4285f4', size = 6) {
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawLine(points, color = '#34a853', width = 2) {
+            if (points.length < 2) return;
+            
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            
+            for (let i = 1; i < points.length - 2; i++) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+            
+            ctx.quadraticCurveTo(
+                points[points.length-2].x, 
+                points[points.length-2].y, 
+                points[points.length-1].x, 
+                points[points.length-1].y
+            );
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+
+        function calculateMSE(fitPoints) {
+            if (fitPoints.length === 0 || dataPoints.length === 0) return '-';
+            let mse = 0;
+            dataPoints.forEach(point => {
+                const nearestFitPoint = fitPoints.reduce((nearest, fp) => {
+                    return Math.abs(fp.x - point.x) < Math.abs(nearest.x - point.x) ? fp : nearest;
+                });
+                mse += Math.pow(point.y - nearestFitPoint.y, 2);
+            });
+            return (mse / dataPoints.length).toFixed(2);
+        }
+
+        function simpleFit() {
+            simpleFitPoints = [];
+            const numPoints = 200;
+            const complexity = document.getElementById('complexity').value / 50;
+            
+            for (let i = 0; i < numPoints; i++) {
+                const x = 50 + (canvas.width - 100) * (i / (numPoints - 1));
+                let y = canvas.height/2;
+                
+                for (let degree = 1; degree <= 3; degree++) {
+                    y += complexity * Math.sin(degree * (x - 50) / (canvas.width - 100) * Math.PI * 2) * 30;
+                }
+                
+                simpleFitPoints.push({x, y});
+            }
+            
+            document.getElementById('simpleMSE').textContent = calculateMSE(simpleFitPoints);
+        }
+
+        function complexFit() {
+            complexFitPoints = [];
+            const numPoints = 200;
+            const complexity = document.getElementById('complexity').value;
+            
+            for (let i = 0; i < numPoints; i++) {
+                const x = 50 + (canvas.width - 100) * (i / (numPoints - 1));
+                let y = canvas.height/2;
+                
+                for (let j = 0; j < dataPoints.length; j++) {
+                    const dx = x - dataPoints[j].x;
+                    y += (dataPoints[j].y - canvas.height/2) * 
+                         Math.exp(-dx * dx / (complexity * 20));
+                }
+                
+                complexFitPoints.push({x, y});
+            }
+            
+            document.getElementById('complexMSE').textContent = calculateMSE(complexFitPoints);
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+        }
+
+        function drawAll() {
+            clearCanvas();
+            if (simpleFitPoints.length > 0) {
+                drawLine(simpleFitPoints, '#34a853');
+            }
+            if (complexFitPoints.length > 0) {
+                drawLine(complexFitPoints, '#ea4335');
+            }
+            dataPoints.forEach(point => drawPoint(point.x, point.y));
+        }
+
+        // 数据拟合演示事件监听器
+        document.getElementById('generateData').addEventListener('click', () => {
+            generateRandomData();
+            simpleFitPoints = [];
+            complexFitPoints = [];
+            document.getElementById('simpleMSE').textContent = '-';
+            document.getElementById('complexMSE').textContent = '-';
+            drawAll();
+        });
+
+        document.getElementById('fitSimple').addEventListener('click', () => {
+            if (dataPoints.length === 0) return;
+            simpleFit();
+            drawAll();
+        });
+
+        document.getElementById('fitComplex').addEventListener('click', () => {
+            if (dataPoints.length === 0) return;
+            complexFit();
+            drawAll();
+        });
+
+        document.getElementById('reset').addEventListener('click', () => {
+            dataPoints = [];
+            simpleFitPoints = [];
+            complexFitPoints = [];
+            document.getElementById('simpleMSE').textContent = '-';
+            document.getElementById('complexMSE').textContent = '-';
+            clearCanvas();
+        });
+
+        document.getElementById('pointCount').addEventListener('input', function() {
+            document.getElementById('pointCountValue').textContent = this.value;
+        });
+
+        document.getElementById('complexity').addEventListener('input', function() {
+            document.getElementById('complexityValue').textContent = this.value;
+            if (dataPoints.length > 0) {
+                if (simpleFitPoints.length > 0) simpleFit();
+                if (complexFitPoints.length > 0) complexFit();
+                drawAll();
+            }
+        });
+
+        // 对话演示代码
+        const trainingData = [
+            {
+                question: "人工智能是什么？",
+                normalAnswer: "人工智能是让计算机模拟人类智能的技术，包括学习、推理和问题解决等能力。",
+                overfitAnswer: "人工智能是一种让计算机具备智能的技术。"
+            },
+            {
+                question: "机器学习有什么应用？",
+                normalAnswer: "机器学习在图像识别、语音处理、自然语言理解等领域都有广泛应用。",
+                overfitAnswer: "机器学习有很多应用场景。"
+            },
+            {
+                question: "深度学习为什么重要？",
+                normalAnswer: "深度学习能够自动学习特征，处理复杂的模式识别问题，在多个领域都取得了突破性进展。",
+                overfitAnswer: "深度学习非常重要，因为它很强大。"
+            },
+            {
+                question: "什么是神经网络？",
+                normalAnswer: "神经网络是一种模仿人脑结构的计算模型，由多层神经元相互连接组成，能够进行复杂的信息处理。",
+                overfitAnswer: "神经网络就是像大脑一样的东西。"
+            },
+            {
+                question: "如何评估AI模型的好坏？",
+                normalAnswer: "评估AI模型需要考虑准确率、泛化能力、计算效率等多个方面，同时要注意避免过度拟合。",
+                overfitAnswer: "要看模型表现得好不好。"
+            }
+        ];
+
+        const responses = {
+            normal: [
+                "让我从专业角度分析一下这个问题...",
+                "这个问题涉及几个重要方面...",
+                "根据目前的研究和实践，我认为...",
+                "从技术角度来看...",
+                "这个问题可以这样理解..."
+            ],
+            overfit: []
+        };
+
+        const userPatterns = {
+            normal: [],
+            overfit: []
+        };
+
+        // 显示训练数据
+        function showTrainingData(type) {
+            const container = document.getElementById(`${type}Chat`);
+            container.innerHTML = '<div class="training-data-header">训练数据：</div>';
+            
+            trainingData.forEach(data => {
+                // 添加问题
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'message user-message training-data';
+                questionDiv.textContent = data.question;
+                container.appendChild(questionDiv);
+
+                // 添加回答
+                const answerDiv = document.createElement('div');
+                answerDiv.className = `message ai-message training-data ${type === 'overfit' ? 'overfitting' : ''}`;
+                answerDiv.textContent = type === 'normal' ? data.normalAnswer : data.overfitAnswer;
+                container.appendChild(answerDiv);
+            });
+
+            container.appendChild(document.createElement('hr'));
+            container.appendChild(document.createElement('div')).textContent = '实时对话：';
+        }
+
+        function updateMetrics(type) {
+            const diversity = type === 'normal' ? 
+                Math.max(100 - userPatterns[type].length * 5, 20) :
+                Math.max(100 - userPatterns[type].length * 15, 20);
+            
+            const pattern = type === 'normal' ?
+                Math.min(20 + userPatterns[type].length * 5, 40) :
+                Math.min(20 + userPatterns[type].length * 20, 95);
+
+            document.getElementById(`${type}Diversity`).textContent = `${diversity}%`;
+            document.getElementById(`${type}Pattern`).textContent = `${pattern}%`;
+
+            updatePatternVisualization(type, pattern / 100);
+        }
+
+        function updatePatternVisualization(type, intensity) {
+            const container = document.getElementById(`${type}Pattern`);
+            container.innerHTML = '';
+
+            const patternCount = Math.floor(intensity * 20) + 5;
+            for (let i = 0; i < patternCount; i++) {
+                const pattern = document.createElement('div');
+                pattern.className = 'pattern';
+                pattern.style.backgroundColor = type === 'normal' ? '#e3f2fd' : '#fce4ec';
+                pattern.style.width = '10px';
+                pattern.style.height = '10px';
+                pattern.style.left = `${Math.random() * 100}%`;
+                pattern.style.top = `${Math.random() * 100}%`;
+                pattern.style.borderRadius = '50%';
+                pattern.style.opacity = 0.6;
+                container.appendChild(pattern);
+            }
+        }
+
+        function addMessage(type, message, isUser) {
+            const container = document.getElementById(`${type}Chat`);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            if (!isUser && type === 'overfit') {
+                messageDiv.className += ' overfitting';
+            }
+            messageDiv.textContent = message;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function findSimilarTrainingData(userInput) {
+            return trainingData.reduce((closest, data) => {
+                const similarity = calculateSimilarity(userInput, data.question);
+                if (similarity > closest.similarity) {
+                    return { data, similarity };
+                }
+                return closest;
+            }, { data: null, similarity: 0 });
+        }
+
+        function calculateSimilarity(str1, str2) {
+            const words1 = str1.toLowerCase().split(/[\s,。？！，.?!]+/);
+            const words2 = str2.toLowerCase().split(/[\s,。？！，.?!]+/);
+            const commonWords = words1.filter(word => words2.includes(word));
+            return commonWords.length / Math.max(words1.length, words2.length);
+        }
+
+        function generateResponse(type, userInput) {
+            if (type === 'normal') {
+                // 正常学习的AI会参考训练数据，但保持自己的表达方式
+                const { data, similarity } = findSimilarTrainingData(userInput);
+                if (data && similarity > 0.3) {
+                    // 如果找到相似的训练数据，融合训练答案和模板
+                    const template = responses.normal[Math.floor(Math.random() * responses.normal.length)];
+                    return template + " " + data.normalAnswer;
+                } else {
+                    // 如果没有相似的训练数据，使用通用回复
+                    return responses.normal[Math.floor(Math.random() * responses.normal.length)] +
+                           " 这是一个需要深入研究的问题。";
+                }
+            } else {
+                // 过度拟合的AI会严格模仿训练数据的表达方式
+                const { data, similarity } = findSimilarTrainingData(userInput);
+                if (data && similarity > 0.2) {
+                    // 如果找到相似的训练数据，直接使用训练答案
+                    return data.overfitAnswer;
+                } else {
+                    // 即使没有完全匹配的训练数据，也要模仿训练数据的表达方式
+                    const patterns = userInput.match(/[！。？，]/g) || [];
+                    const words = userInput.split(/[，。！？]/);
+                    
+                    userPatterns.overfit.push({
+                        punctuation: patterns,
+                        length: userInput.length,
+                        words: words
+                    });
+
+                    let response = "我";
+                    if (userInput.includes("吗")) response += "觉得";
+                    if (userInput.includes("为什么")) response += "认为是因为";
+                    if (userInput.includes("怎么")) response += "建议";
+                    
+                    const pattern = userPatterns.overfit[userPatterns.overfit.length - 1];
+                    response += "这个问题" + (pattern.punctuation[0] || "，");
+                    response += "需要" + (pattern.punctuation[0] || "，");
+                    response += "参考训练数据" + (pattern.punctuation[pattern.punctuation.length - 1] || "。");
+
+                    return response;
+                }
+            }
+        }
+
+        function sendMessage(type) {
+            const input = document.getElementById(`${type}Input`);
+            const message = input.value.trim();
+            
+            if (message) {
+                addMessage(type, message, true);
+                
+                setTimeout(() => {
+                    const response = generateResponse(type, message);
+                    addMessage(type, response, false);
+                    updateMetrics(type);
+                }, 500);
+                
+                input.value = '';
+            }
+        }
+
+        // 对话演示事件监听器
+        document.getElementById('normalInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage('normal');
+        });
+        document.getElementById('overfitInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage('overfit');
+        });
+
+        // 初始化
+        drawGrid();
+        generateRandomData();
+        drawAll();
+        updateMetrics('normal');
+        updateMetrics('overfit');
+        showTrainingData('normal');
+        showTrainingData('overfit');
+    </script>
+</body>
+</html>
